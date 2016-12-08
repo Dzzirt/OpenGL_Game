@@ -1,7 +1,6 @@
 package com.game.dzzirt.game.primitives;
 
 import android.content.Context;
-import android.opengl.Matrix;
 
 import com.game.dzzirt.game.R;
 import com.game.dzzirt.game.common.FileUtils;
@@ -10,11 +9,19 @@ import org.joml.AxisAngle4f;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
-import java.nio.ByteBuffer;
-import java.nio.FloatBuffer;
 import java.util.ArrayList;
 
+import static android.opengl.GLES20.GL_FLOAT;
+import static android.opengl.GLES20.GL_TRIANGLES;
+import static android.opengl.GLES20.GL_UNSIGNED_SHORT;
+import static android.opengl.GLES20.glDisableVertexAttribArray;
+import static android.opengl.GLES20.glDrawElements;
+import static android.opengl.GLES20.glEnableVertexAttribArray;
+import static android.opengl.GLES20.glGetAttribLocation;
+import static android.opengl.GLES20.glGetUniformLocation;
+import static android.opengl.GLES20.glUniformMatrix4fv;
 import static android.opengl.GLES20.glUseProgram;
+import static android.opengl.GLES20.glVertexAttribPointer;
 
 /**
  * Created by Dzzirt on 28.11.2016.
@@ -29,9 +36,33 @@ public abstract class Object3D extends ADrawable implements ITransformable {
 
     private ShaderProgram m_shaderProgram;
 
+    private int m_uMatrixLocation;
+    private int m_aPositionLocation;
+    private int m_aColorLocation;
+
     protected abstract void prepareData();
 
-    protected abstract void bindData();
+    protected void bindData() {
+        int programId = getShaderProgramId();
+        m_aPositionLocation = glGetAttribLocation(programId, "a_Position");
+        glVertexAttribPointer(m_aPositionLocation, 3, GL_FLOAT,
+                false, 0, getVertexData().getVerticies());
+
+        if (getVertexData().getColors() != null) {
+            m_aColorLocation = glGetAttribLocation(programId, "a_Color");
+            glVertexAttribPointer(m_aColorLocation, 4, GL_FLOAT, false, 0, getVertexData().getColors());
+        }
+
+        m_uMatrixLocation = glGetUniformLocation(programId, "u_Matrix");
+    } ;
+
+    private void updateModelMatrix(Matrix4f projViewMat) {
+        Matrix4f resultMat = new Matrix4f();
+        projViewMat.mul(getTransform(), resultMat);
+        float[] temp = new float[16];
+        resultMat.get(temp);
+        glUniformMatrix4fv(m_uMatrixLocation, 1, false, temp, 0);
+    }
 
     protected void setVertexData(VertexData vertexData) {
         m_vertexData = vertexData;
@@ -45,8 +76,8 @@ public abstract class Object3D extends ADrawable implements ITransformable {
         return m_shaderProgram.getProgramId();
     }
 
-    public Object3D(Context context, int vertexShaderRes, int fragmentShaderRes) {
-        createShaderProgram(context, vertexShaderRes, fragmentShaderRes);
+    public Object3D(Context context) {
+        createShaderProgram(context, R.raw.vertex_shader, R.raw.fragment_shader);
     }
 
     @Override
@@ -91,5 +122,21 @@ public abstract class Object3D extends ADrawable implements ITransformable {
         Matrix4f result = new Matrix4f();
         m_translationMat.mul(m_rotationMat, result);
         return result;
+    }
+
+    @Override
+    public void draw(Matrix4f projViewMat) {
+        bindData();
+
+        updateModelMatrix(projViewMat);
+
+        glEnableVertexAttribArray(m_aPositionLocation);
+        glEnableVertexAttribArray(m_aColorLocation);
+
+        glDrawElements(GL_TRIANGLES, getVertexData().getFaces().capacity()
+                , GL_UNSIGNED_SHORT, getVertexData().getFaces());
+
+        glDisableVertexAttribArray(m_aColorLocation);
+        glDisableVertexAttribArray(m_aPositionLocation);
     }
 }

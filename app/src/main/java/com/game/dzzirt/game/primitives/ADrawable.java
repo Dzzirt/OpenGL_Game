@@ -7,5 +7,5 @@ import org.joml.Matrix4f;
  */
 
 public abstract class ADrawable {
-    protected abstract void draw(Matrix4f projViewMat);
+    public abstract void draw(Matrix4f projViewMat);
 }

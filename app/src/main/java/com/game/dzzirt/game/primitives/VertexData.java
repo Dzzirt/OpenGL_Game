@@ -40,6 +40,9 @@ public class VertexData {
         return m_faces;
     }
 
+    public void setPosition(int position) {
+        m_verticies.position(position);
+    }
     public FloatBuffer getColors() {
         return m_colors;
     }
